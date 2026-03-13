@@ -1,0 +1,1219 @@
+# =============================================================================
+# Magento 2 Catalog GraphQL Schema - Go Implementation
+# Compatible with Magento 2.4.x products() query
+# =============================================================================
+
+type Query {
+    products(
+        search: String
+        filter: ProductAttributeFilterInput
+        pageSize: Int = 20
+        currentPage: Int = 1
+        sort: ProductAttributeSortInput
+    ): Products
+}
+
+# =============================================================================
+# Products Response
+# =============================================================================
+
+type Products {
+    items: [ProductInterface]
+    page_info: SearchResultPageInfo
+    total_count: Int
+    aggregations(filter: AggregationsFilterInput): [Aggregation]
+    sort_fields: SortFields
+    suggestions: [SearchSuggestion]
+}
+
+type SearchResultPageInfo {
+    page_size: Int
+    current_page: Int
+    total_pages: Int
+}
+
+# =============================================================================
+# Aggregations
+# =============================================================================
+
+type Aggregation {
+    count: Int
+    label: String
+    attribute_code: String!
+    options: [AggregationOption]
+    position: Int
+}
+
+type AggregationOption {
+    count: Int
+    label: String
+    value: String!
+}
+
+input AggregationsFilterInput {
+    category: AggregationsCategoryFilterInput
+}
+
+input AggregationsCategoryFilterInput {
+    includeDirectChildrenOnly: Boolean = false
+}
+
+# =============================================================================
+# Sort
+# =============================================================================
+
+type SortFields {
+    default: String
+    options: [SortField]
+}
+
+type SortField {
+    value: String
+    label: String
+}
+
+type SearchSuggestion {
+    search: String!
+}
+
+# =============================================================================
+# Filter Inputs
+# =============================================================================
+
+input ProductAttributeFilterInput {
+    category_id: FilterEqualTypeInput
+    category_uid: FilterEqualTypeInput
+    category_url_path: FilterEqualTypeInput
+    url_key: FilterEqualTypeInput
+    sku: FilterEqualTypeInput
+    name: FilterMatchTypeInput
+    price: FilterRangeTypeInput
+    # Dynamic EAV filters are handled programmatically
+}
+
+input FilterEqualTypeInput {
+    in: [String]
+    eq: String
+}
+
+input FilterRangeTypeInput {
+    from: String
+    to: String
+}
+
+input FilterMatchTypeInput {
+    match: String
+    match_type: FilterMatchTypeEnum
+}
+
+enum FilterMatchTypeEnum {
+    FULL
+    PARTIAL
+}
+
+# =============================================================================
+# Sort Input
+# =============================================================================
+
+input ProductAttributeSortInput {
+    relevance: SortEnum
+    position: SortEnum
+    name: SortEnum
+    price: SortEnum
+}
+
+enum SortEnum {
+    ASC
+    DESC
+}
+
+# =============================================================================
+# ProductInterface
+# =============================================================================
+
+interface ProductInterface {
+    # Core fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+
+    # Images
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+
+    # Prices
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+
+    # Categories
+    categories: [CategoryInterface]
+
+    # Inventory
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+
+    # URLs
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+
+    # Related products
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+
+    # Reviews
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+
+    # Custom attributes
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+
+    # Deprecated
+    websites: [Website]
+}
+
+# =============================================================================
+# Physical Product Interface
+# =============================================================================
+
+interface PhysicalProductInterface {
+    weight: Float
+}
+
+# =============================================================================
+# Customizable Product Interface
+# =============================================================================
+
+interface CustomizableProductInterface {
+    options: [CustomizableOptionInterface]
+}
+
+interface CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+}
+
+# =============================================================================
+# Routable Interface
+# =============================================================================
+
+interface RoutableInterface {
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+}
+
+# =============================================================================
+# Product Types
+# =============================================================================
+
+type SimpleProduct implements ProductInterface & PhysicalProductInterface & CustomizableProductInterface & RoutableInterface {
+    # ProductInterface fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+    categories: [CategoryInterface]
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+    websites: [Website]
+    # PhysicalProductInterface
+    weight: Float
+    # CustomizableProductInterface
+    options: [CustomizableOptionInterface]
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+}
+
+type ConfigurableProduct implements ProductInterface & PhysicalProductInterface & CustomizableProductInterface & RoutableInterface {
+    # ProductInterface fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+    categories: [CategoryInterface]
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+    websites: [Website]
+    # PhysicalProductInterface
+    weight: Float
+    # CustomizableProductInterface
+    options: [CustomizableOptionInterface]
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+    # ConfigurableProduct-specific
+    variants: [ConfigurableVariant]
+    configurable_options: [ConfigurableProductOptions]
+    configurable_product_options_selection(configurableOptionValueUids: [ID!]): ConfigurableProductOptionsSelection
+}
+
+type VirtualProduct implements ProductInterface & CustomizableProductInterface & RoutableInterface {
+    # ProductInterface fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+    categories: [CategoryInterface]
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+    websites: [Website]
+    # CustomizableProductInterface
+    options: [CustomizableOptionInterface]
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+}
+
+type GroupedProduct implements ProductInterface & PhysicalProductInterface & CustomizableProductInterface & RoutableInterface {
+    # ProductInterface fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+    categories: [CategoryInterface]
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+    websites: [Website]
+    # PhysicalProductInterface
+    weight: Float
+    # CustomizableProductInterface
+    options: [CustomizableOptionInterface]
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+    # GroupedProduct-specific
+    items: [GroupedProductItem]
+}
+
+type BundleProduct implements ProductInterface & PhysicalProductInterface & CustomizableProductInterface & RoutableInterface {
+    # ProductInterface fields
+    id: Int
+    uid: ID!
+    name: String
+    sku: String
+    type_id: String
+    attribute_set_id: Int
+    description: ComplexTextValue
+    short_description: ComplexTextValue
+    special_price: Float
+    special_from_date: String
+    special_to_date: String
+    meta_title: String
+    meta_keyword: String
+    meta_description: String
+    new_from_date: String
+    new_to_date: String
+    tier_price: Float
+    options_container: String
+    created_at: String
+    updated_at: String
+    country_of_manufacture: String
+    manufacturer: Int
+    gift_message_available: String
+    canonical_url: String
+    image: ProductImage
+    small_image: ProductImage
+    thumbnail: ProductImage
+    swatch_image: String
+    media_gallery: [MediaGalleryInterface]
+    media_gallery_entries: [MediaGalleryEntry]
+    price_range: PriceRange!
+    price: ProductPrices
+    price_tiers: [TierPrice]
+    tier_prices: [ProductTierPrices]
+    categories: [CategoryInterface]
+    stock_status: ProductStockStatus
+    only_x_left_in_stock: Float
+    quantity: Float
+    min_sale_qty: Float
+    max_sale_qty: Float
+    url_key: String
+    url_suffix: String
+    url_path: String
+    url_rewrites: [UrlRewrite]
+    related_products: [ProductInterface]
+    upsell_products: [ProductInterface]
+    crosssell_products: [ProductInterface]
+    product_links: [ProductLink]
+    rating_summary: Float!
+    review_count: Int!
+    reviews(pageSize: Int = 20, currentPage: Int = 1): ProductReviews!
+    custom_attributesV2(filters: AttributeFilterInput): ProductCustomAttributes
+    websites: [Website]
+    # PhysicalProductInterface
+    weight: Float
+    # CustomizableProductInterface
+    options: [CustomizableOptionInterface]
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+    # BundleProduct-specific
+    dynamic_sku: Boolean
+    dynamic_price: Boolean
+    dynamic_weight: Boolean
+    price_view: PriceViewEnum
+    ship_bundle_items: ShipBundleItemsEnum
+    bundle_items: [BundleItem]
+}
+
+# =============================================================================
+# Configurable Product Types
+# =============================================================================
+
+type ConfigurableVariant {
+    attributes: [ConfigurableAttributeOption]
+    product: SimpleProduct
+}
+
+type ConfigurableAttributeOption {
+    label: String
+    code: String
+    value_index: Int
+    uid: ID!
+}
+
+type ConfigurableProductOptions {
+    id: Int
+    uid: ID!
+    attribute_id: String
+    attribute_id_v2: Int
+    attribute_uid: ID!
+    attribute_code: String
+    label: String
+    position: Int
+    use_default: Boolean
+    values: [ConfigurableProductOptionsValues]
+    product_id: Int
+}
+
+type ConfigurableProductOptionsValues {
+    value_index: Int
+    uid: ID
+    label: String
+    default_label: String
+    store_label: String
+    use_default_value: Boolean
+    swatch_data: SwatchDataInterface
+}
+
+type ConfigurableProductOptionsSelection {
+    options_available_for_selection: [ConfigurableOptionAvailableForSelection!]
+    configurable_options: [ConfigurableProductOption!]
+    media_gallery: [MediaGalleryInterface!]
+    variant: SimpleProduct
+}
+
+type ConfigurableOptionAvailableForSelection {
+    option_value_uids: [ID!]!
+    attribute_code: String!
+}
+
+type ConfigurableProductOption {
+    uid: ID!
+    attribute_code: String!
+    label: String!
+    values: [ConfigurableProductOptionValue!]
+}
+
+type ConfigurableProductOptionValue {
+    uid: ID!
+    is_available: Boolean!
+    is_use_default: Boolean!
+    label: String!
+    swatch: SwatchDataInterface
+}
+
+# =============================================================================
+# Grouped Product Types
+# =============================================================================
+
+type GroupedProductItem {
+    qty: Float
+    position: Int
+    product: ProductInterface
+}
+
+# =============================================================================
+# Bundle Product Types
+# =============================================================================
+
+type BundleItem {
+    option_id: Int
+    uid: ID!
+    title: String
+    required: Boolean
+    type: String
+    position: Int
+    sku: String
+    options: [BundleItemOption]
+}
+
+type BundleItemOption {
+    id: Int
+    uid: ID!
+    label: String
+    qty: Float
+    position: Int
+    is_default: Boolean
+    price: Float
+    price_type: PriceTypeEnum
+    can_change_quantity: Boolean
+    product: ProductInterface
+}
+
+enum PriceViewEnum {
+    PRICE_RANGE
+    AS_LOW_AS
+}
+
+enum ShipBundleItemsEnum {
+    TOGETHER
+    SEPARATELY
+}
+
+# =============================================================================
+# Price Types
+# =============================================================================
+
+type PriceRange {
+    minimum_price: ProductPrice!
+    maximum_price: ProductPrice
+}
+
+type ProductPrice {
+    regular_price: Money!
+    final_price: Money!
+    discount: ProductDiscount
+    fixed_product_taxes: [FixedProductTax]
+}
+
+type ProductDiscount {
+    percent_off: Float
+    amount_off: Float
+}
+
+type Money {
+    value: Float
+    currency: CurrencyEnum
+}
+
+type FixedProductTax {
+    amount: Money
+    label: String
+}
+
+# Deprecated price types
+type ProductPrices {
+    minimalPrice: Price
+    maximalPrice: Price
+    regularPrice: Price
+}
+
+type Price {
+    amount: Money
+    adjustments: [PriceAdjustment]
+}
+
+type PriceAdjustment {
+    amount: Money
+    code: PriceAdjustmentCodesEnum
+    description: PriceAdjustmentDescriptionEnum
+}
+
+enum PriceAdjustmentCodesEnum {
+    TAX
+    WEEE
+    WEEE_TAX
+}
+
+enum PriceAdjustmentDescriptionEnum {
+    INCLUDED
+    EXCLUDED
+}
+
+enum PriceTypeEnum {
+    FIXED
+    PERCENT
+    DYNAMIC
+}
+
+# =============================================================================
+# Tier Prices
+# =============================================================================
+
+type TierPrice {
+    final_price: Money
+    quantity: Float
+    discount: ProductDiscount
+}
+
+type ProductTierPrices {
+    customer_group_id: String
+    qty: Float
+    value: Float
+    percentage_value: Float
+    website_id: Float
+}
+
+# =============================================================================
+# Media Gallery
+# =============================================================================
+
+interface MediaGalleryInterface {
+    url: String
+    label: String
+    position: Int
+    disabled: Boolean
+}
+
+type ProductImage implements MediaGalleryInterface {
+    url: String
+    label: String
+    position: Int
+    disabled: Boolean
+    types: [String]
+}
+
+type ProductVideo implements MediaGalleryInterface {
+    url: String
+    label: String
+    position: Int
+    disabled: Boolean
+    video_content: ProductMediaGalleryEntriesVideoContent
+}
+
+type MediaGalleryEntry {
+    id: Int
+    uid: ID!
+    media_type: String
+    label: String
+    position: Int
+    disabled: Boolean
+    types: [String]
+    file: String
+    content: ProductMediaGalleryEntriesContent
+    video_content: ProductMediaGalleryEntriesVideoContent
+}
+
+type ProductMediaGalleryEntriesContent {
+    base64_encoded_data: String
+    type: String
+    name: String
+}
+
+type ProductMediaGalleryEntriesVideoContent {
+    media_type: String
+    video_provider: String
+    video_url: String
+    video_title: String
+    video_description: String
+    video_metadata: String
+}
+
+# =============================================================================
+# Product Links
+# =============================================================================
+
+type ProductLink {
+    sku: String
+    link_type: String
+    linked_product_sku: String
+    linked_product_type: String
+    position: Int
+}
+
+# =============================================================================
+# Category Types
+# =============================================================================
+
+interface CategoryInterface {
+    id: Int
+    uid: ID!
+    description: String
+    name: String
+    path: String
+    path_in_store: String
+    url_key: String
+    url_path: String
+    canonical_url: String
+    position: Int
+    level: Int
+    created_at: String
+    updated_at: String
+    product_count: Int
+    default_sort_by: String
+    products(pageSize: Int = 20, currentPage: Int = 1, sort: ProductAttributeSortInput): CategoryProducts
+    breadcrumbs: [Breadcrumb]
+    url_suffix: String
+}
+
+type CategoryTree implements CategoryInterface & RoutableInterface {
+    id: Int
+    uid: ID!
+    description: String
+    name: String
+    path: String
+    path_in_store: String
+    url_key: String
+    url_path: String
+    canonical_url: String
+    position: Int
+    level: Int
+    created_at: String
+    updated_at: String
+    product_count: Int
+    default_sort_by: String
+    products(pageSize: Int = 20, currentPage: Int = 1, sort: ProductAttributeSortInput): CategoryProducts
+    breadcrumbs: [Breadcrumb]
+    url_suffix: String
+    # RoutableInterface
+    relative_url: String
+    redirect_code: Int!
+    type: UrlRewriteEntityTypeEnum
+    children: [CategoryTree]
+}
+
+type Breadcrumb {
+    category_id: Int
+    category_uid: ID!
+    category_name: String
+    category_level: Int
+    category_url_key: String
+    category_url_path: String
+}
+
+type CategoryProducts {
+    items: [ProductInterface]
+    page_info: SearchResultPageInfo
+    total_count: Int
+}
+
+# =============================================================================
+# Reviews
+# =============================================================================
+
+type ProductReviews {
+    items: [ProductReview]!
+    page_info: SearchResultPageInfo!
+}
+
+type ProductReview {
+    summary: String!
+    text: String!
+    nickname: String!
+    created_at: String!
+    average_rating: Float!
+    ratings_breakdown: [ProductReviewRating!]!
+}
+
+type ProductReviewRating {
+    name: String!
+    value: String!
+}
+
+# =============================================================================
+# Swatch Types
+# =============================================================================
+
+interface SwatchDataInterface {
+    value: String
+}
+
+type ColorSwatchData implements SwatchDataInterface {
+    value: String
+}
+
+type TextSwatchData implements SwatchDataInterface {
+    value: String
+}
+
+type ImageSwatchData implements SwatchDataInterface {
+    value: String
+    thumbnail: String
+}
+
+# =============================================================================
+# URL Rewrite
+# =============================================================================
+
+type UrlRewrite {
+    url: String
+    parameters: [HttpQueryParameter]
+}
+
+type HttpQueryParameter {
+    name: String
+    value: String
+}
+
+enum UrlRewriteEntityTypeEnum {
+    PRODUCT
+    CATEGORY
+    CMS_PAGE
+}
+
+# =============================================================================
+# Custom Attributes
+# =============================================================================
+
+type ProductCustomAttributes {
+    items: [AttributeValueInterface!]!
+    errors: [AttributeMetadataError!]!
+}
+
+interface AttributeValueInterface {
+    code: ID!
+}
+
+type AttributeValue implements AttributeValueInterface {
+    code: ID!
+    value: String!
+}
+
+type AttributeSelectedOptions implements AttributeValueInterface {
+    code: ID!
+    selected_options: [AttributeSelectedOption!]!
+}
+
+type AttributeSelectedOption {
+    label: String!
+    value: String!
+}
+
+type AttributeMetadataError {
+    type: AttributeMetadataErrorType!
+    message: String!
+}
+
+enum AttributeMetadataErrorType {
+    ENTITY_NOT_FOUND
+    ATTRIBUTE_NOT_FOUND
+    FILTER_NOT_FOUND
+    UNDEFINED
+}
+
+input AttributeFilterInput {
+    is_comparable: Boolean
+    is_filterable: Boolean
+    is_filterable_in_search: Boolean
+    is_html_allowed_on_front: Boolean
+    is_searchable: Boolean
+    is_used_for_price_rules: Boolean
+    is_used_for_promo_rules: Boolean
+    is_visible_in_advanced_search: Boolean
+    is_visible_on_front: Boolean
+    is_wysiwyg_enabled: Boolean
+    used_in_product_listing: Boolean
+}
+
+# =============================================================================
+# Customizable Option Types
+# =============================================================================
+
+type CustomizableAreaOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: CustomizableAreaValue
+    product_sku: String
+}
+
+type CustomizableAreaValue {
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    max_characters: Int
+    uid: ID!
+}
+
+type CustomizableDateOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: CustomizableDateValue
+    product_sku: String
+}
+
+type CustomizableDateValue {
+    price: Float
+    price_type: PriceTypeEnum
+    type: CustomizableDateTypeEnum
+    sku: String
+    uid: ID!
+}
+
+enum CustomizableDateTypeEnum {
+    DATE
+    DATE_TIME
+    TIME
+}
+
+type CustomizableDropDownOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: [CustomizableDropDownValue]
+}
+
+type CustomizableDropDownValue {
+    option_type_id: Int
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    title: String
+    sort_order: Int
+    uid: ID!
+}
+
+type CustomizableMultipleOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: [CustomizableMultipleValue]
+}
+
+type CustomizableMultipleValue {
+    option_type_id: Int
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    title: String
+    sort_order: Int
+    uid: ID!
+}
+
+type CustomizableFieldOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: CustomizableFieldValue
+    product_sku: String
+}
+
+type CustomizableFieldValue {
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    max_characters: Int
+    uid: ID!
+}
+
+type CustomizableFileOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: CustomizableFileValue
+    product_sku: String
+}
+
+type CustomizableFileValue {
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    file_extension: String
+    image_size_x: Int
+    image_size_y: Int
+    uid: ID!
+}
+
+type CustomizableRadioOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: [CustomizableRadioValue]
+}
+
+type CustomizableRadioValue {
+    option_type_id: Int
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    title: String
+    sort_order: Int
+    uid: ID!
+}
+
+type CustomizableCheckboxOption implements CustomizableOptionInterface {
+    title: String
+    required: Boolean
+    sort_order: Int
+    uid: ID!
+    value: [CustomizableCheckboxValue]
+}
+
+type CustomizableCheckboxValue {
+    option_type_id: Int
+    price: Float
+    price_type: PriceTypeEnum
+    sku: String
+    title: String
+    sort_order: Int
+    uid: ID!
+}
+
+# =============================================================================
+# Common Types
+# =============================================================================
+
+type ComplexTextValue {
+    html: String!
+}
+
+enum ProductStockStatus {
+    IN_STOCK
+    OUT_OF_STOCK
+}
+
+type Website {
+    id: Int
+    name: String
+    code: String
+    default_group_id: Int
+    is_default: Boolean
+}
+
+# =============================================================================
+# Currency Enum
+# =============================================================================
+
+enum CurrencyEnum {
+    AFN AED ALL AZN DZD AOA ARS AMD AWG AUD BSD BHD BDT BBD BYN BZD BMD BTN BOB
+    BAM BWP BRL GBP BND BGN BIF KHR CAD CVE CZK KYD CLP CNY COP KMF CDF CRC
+    HRK CUP DKK DJF DOP XCD EGP SVC ERN ETB EUR FKP FJD GMD GEL GHS GIP GTQ
+    GNF GYD HTG HNL HKD HUF ISK INR IDR IRR IQD ILS JMD JPY JOD KZT KES KWD
+    KGS LAK LBP LSL LRD LYD MOP MKD MGA MWK MYR MVR MRO MUR MXN MDL MNT MAD
+    MZN MMK NAD NPR ANG NZD NIC NGN KPW NOK OMR PKR PAB PGK PYG PEN PHP PLN
+    QAR RON RUB RWF SHP STD SAR RSD SCR SLL SGD SBD SOS ZAR KRW LKR SDG SRD
+    SZL SEK CHF SYP TWD TJS TZS THB TOP TTD TND TMM TRY USD UGX UAH UYU UZS
+    VUV VEF VND WST YER ZMK ZWD
+}
