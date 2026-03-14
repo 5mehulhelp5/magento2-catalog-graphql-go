@@ -35,5 +35,7 @@ config/config.local.yaml
 # Internal development docs
 .dev/
 
-# Claude Code
-.claude/
+# Claude Code (version skills, ignore local settings and memory)
+.claude/settings.local.json
+.claude/projects/
+.claude/memory/
