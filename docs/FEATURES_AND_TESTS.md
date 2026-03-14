@@ -898,6 +898,11 @@ The following differences were identified, root-caused, and **fixed** during dev
 | Aggregations returning `null` vs `[]` | When no products matched, the early-return path didn't include aggregations. Magento returns `[]` even for zero-result queries. | Moved `CollectRequestedFields` before the early return; return `[]*model.Aggregation{}` when aggregations are requested |
 | Media base URL hardcoded | Was using hardcoded production CDN URL. | Auto-detect from `core_config_data` (`web/secure/base_media_url` → `web/secure/base_url` + `/media`), stored in `StoreConfig.MediaBaseURL` |
 | Name/price filter result ordering | MySQL vs Elasticsearch collation differences cause different ordering for edge cases (double spaces in names, same-price tie-breaking). | Tests sort by SKU for stable comparison |
+| `SQL_CALC_FOUND_ROWS` connection race | `FOUND_ROWS()` could return wrong count when the connection pool assigns a different connection. MySQL 8.0.17+ also deprecates this feature. | Replaced with separate `SELECT COUNT(DISTINCT cpe.entity_id)` query using the same FROM/WHERE clauses |
+| Missing `rows.Err()` checks | Database errors during row iteration (timeouts, connection resets) were silently swallowed, returning partial results as complete. | Added `rows.Err()` checks after all 25 scan loops across 12 repository files |
+| Unbounded request body in cache middleware | `io.ReadAll(r.Body)` with no size limit allowed memory exhaustion via oversized requests. | Added `io.LimitReader(r.Body, 1<<20)` (1MB limit) |
+| MaxDepth/ComplexityLimit logic bug | Condition checked `MaxDepth > 0` but applied `ComplexityLimit`, so neither limit was enforced. | Fixed to check `ComplexityLimit > 0` for complexity limit |
+| Batch load errors silently discarded | Price, media, inventory, category, and URL rewrite batch load errors were discarded with `_, _`, potentially serving wrong data cached with HTTP 200. | Added `log.Warn().Err(err).Msg(...)` for all 8 batch load calls |
 
 ---
 
