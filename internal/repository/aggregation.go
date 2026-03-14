@@ -5,12 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // AggregationRepository handles faceted search / layered navigation aggregations.
 type AggregationRepository struct {
-	db       *sql.DB
-	attrRepo *AttributeRepository
+	db                *sql.DB
+	attrRepo          *AttributeRepository
+	filterableAttrs   []*FilterableAttribute
+	filterableAttrsMu sync.RWMutex
+	filterableLoaded  bool
 }
 
 func NewAggregationRepository(db *sql.DB, attrRepo *AttributeRepository) *AggregationRepository {
@@ -42,7 +46,19 @@ type AggregationOption struct {
 }
 
 // GetFilterableAttributes returns all filterable product attributes.
+// For non-search queries (inSearch=false), results are cached after the first call.
 func (r *AggregationRepository) GetFilterableAttributes(ctx context.Context, inSearch bool) ([]*FilterableAttribute, error) {
+	// For the standard (non-search) case, serve from cache
+	if !inSearch {
+		r.filterableAttrsMu.RLock()
+		if r.filterableLoaded {
+			attrs := r.filterableAttrs
+			r.filterableAttrsMu.RUnlock()
+			return attrs, nil
+		}
+		r.filterableAttrsMu.RUnlock()
+	}
+
 	filterCol := "eaa.is_filterable"
 	if inSearch {
 		filterCol = "eaa.is_filterable_in_search"
@@ -73,6 +89,15 @@ func (r *AggregationRepository) GetFilterableAttributes(ctx context.Context, inS
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("filterable attributes rows iteration failed: %w", err)
 	}
+
+	// Cache the result for non-search queries
+	if !inSearch {
+		r.filterableAttrsMu.Lock()
+		r.filterableAttrs = attrs
+		r.filterableLoaded = true
+		r.filterableAttrsMu.Unlock()
+	}
+
 	return attrs, nil
 }
 

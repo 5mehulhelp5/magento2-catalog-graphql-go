@@ -89,7 +89,7 @@ var coreEAVAttributes = []eavJoinDef{
 
 // FindProducts queries products with EAV attributes resolved via optimized JOINs.
 // Store-scoped with fallback: store-specific value → default (store_id=0).
-func (r *ProductRepository) FindProducts(ctx context.Context, storeID int, search *string, filter *model.ProductAttributeFilterInput, sort *model.ProductAttributeSortInput, pageSize, currentPage int) ([]*ProductEAVValues, int, error) {
+func (r *ProductRepository) FindProducts(ctx context.Context, storeID int, search *string, filter *model.ProductAttributeFilterInput, sort *model.ProductAttributeSortInput, pageSize, currentPage int) ([]*ProductEAVValues, int, []int, error) {
 	// Build SELECT columns
 	selectCols := []string{
 		"cpe.entity_id", "cpe.row_id", "cpe.sku", "cpe.type_id", "cpe.attribute_set_id",
@@ -167,7 +167,7 @@ func (r *ProductRepository) FindProducts(ctx context.Context, storeID int, searc
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("product query failed: %w", err)
+		return nil, 0, nil, fmt.Errorf("product query failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -188,29 +188,44 @@ func (r *ProductRepository) FindProducts(ctx context.Context, storeID int, searc
 			&p.SwatchImage,
 		)
 		if err != nil {
-			return nil, 0, fmt.Errorf("scan failed: %w", err)
+			return nil, 0, nil, fmt.Errorf("scan failed: %w", err)
 		}
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("rows iteration failed: %w", err)
+		return nil, 0, nil, fmt.Errorf("rows iteration failed: %w", err)
 	}
 
-	// Get total count with a separate COUNT(*) query (connection-pool safe, unlike FOUND_ROWS)
-	countQuery := "SELECT COUNT(DISTINCT cpe.entity_id)\n" + fromClause
+	// Get all matching entity IDs (unpaginated) for totalCount and aggregation reuse.
+	// This replaces both the old COUNT(*) query and the separate FindMatchingEntityIDs call,
+	// avoiding a duplicate full-table scan.
+	matchQuery := "SELECT DISTINCT cpe.entity_id\n" + fromClause
 	if extraJoin != "" {
-		countQuery += extraJoin
+		matchQuery += extraJoin
 	}
 	if len(conditions) > 0 {
-		countQuery += "WHERE " + strings.Join(conditions, " AND ")
+		matchQuery += "WHERE " + strings.Join(conditions, " AND ")
 	}
-	var totalCount int
-	err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
+	matchRows, err := r.db.QueryContext(ctx, matchQuery, args...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("count query failed: %w", err)
+		return nil, 0, nil, fmt.Errorf("matching IDs query failed: %w", err)
 	}
+	defer matchRows.Close()
 
-	return products, totalCount, nil
+	var allMatchingIDs []int
+	for matchRows.Next() {
+		var id int
+		if err := matchRows.Scan(&id); err != nil {
+			return nil, 0, nil, fmt.Errorf("matching IDs scan failed: %w", err)
+		}
+		allMatchingIDs = append(allMatchingIDs, id)
+	}
+	if err := matchRows.Err(); err != nil {
+		return nil, 0, nil, fmt.Errorf("matching IDs rows iteration failed: %w", err)
+	}
+	totalCount := len(allMatchingIDs)
+
+	return products, totalCount, allMatchingIDs, nil
 }
 
 // FindMatchingEntityIDs returns all entity IDs matching the given filter (no pagination).

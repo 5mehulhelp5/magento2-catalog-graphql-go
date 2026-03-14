@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -41,15 +42,97 @@ func (r *StoreConfigRepository) Get(ctx context.Context, storeID int) *StoreConf
 	}
 	r.mu.RUnlock()
 
-	urlRepo := NewURLRepository(r.db)
+	// Load website_id for this store
+	var websiteID int
+	if err := r.db.QueryRowContext(ctx, "SELECT website_id FROM store WHERE store_id = ?", storeID).Scan(&websiteID); err != nil {
+		websiteID = 1
+	}
+
+	// Batch-load all config values in a single query
+	configPaths := []string{
+		"currency/options/base",
+		"catalog/seo/product_url_suffix",
+		"catalog/seo/category_url_suffix",
+		"web/secure/base_media_url",
+		"web/secure/base_url",
+		"cataloginventory/options/stock_threshold_qty",
+		"catalog/seo/product_canonical_tag",
+	}
+
+	placeholders := make([]string, len(configPaths))
+	args := make([]interface{}, len(configPaths)+1)
+	for i, p := range configPaths {
+		placeholders[i] = "?"
+		args[i] = p
+	}
+	args[len(configPaths)] = storeID
+
+	query := `SELECT path, value, scope, scope_id
+		FROM core_config_data
+		WHERE path IN (` + strings.Join(placeholders, ",") + `)
+		AND (scope = 'default' OR (scope = 'stores' AND scope_id = ?))
+		ORDER BY scope_id ASC`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		// Fall back to defaults
+		cfg := &StoreConfig{
+			WebsiteID:        websiteID,
+			BaseCurrency:     "USD",
+			ProductURLSuffix: ".html",
+			CategoryURLSuffix: ".html",
+			MediaBaseURL:     "http://localhost/media/catalog/product",
+		}
+		r.mu.Lock()
+		r.cache[storeID] = cfg
+		r.mu.Unlock()
+		return cfg
+	}
+	defer rows.Close()
+
+	// Collect values; store-scoped overrides default because of ORDER BY scope_id ASC
+	configValues := make(map[string]string)
+	for rows.Next() {
+		var path, value, scope string
+		var scopeID int
+		if err := rows.Scan(&path, &value, &scope, &scopeID); err != nil {
+			continue
+		}
+		// Store-scoped values override default values (they come later due to ORDER BY)
+		configValues[path] = value
+	}
+
+	// Build media base URL
+	mediaBaseURL := ""
+	if v, ok := configValues["web/secure/base_media_url"]; ok && v != "" {
+		mediaBaseURL = strings.TrimRight(v, "/")
+	} else {
+		baseURL := "http://localhost/"
+		if v, ok := configValues["web/secure/base_url"]; ok && v != "" {
+			baseURL = v
+		}
+		mediaBaseURL = strings.TrimRight(baseURL, "/") + "/media"
+	}
+	mediaBaseURL += "/catalog/product"
+
+	// Parse float config values
+	stockThreshold := 0.0
+	if v, ok := configValues["cataloginventory/options/stock_threshold_qty"]; ok {
+		fmt.Sscanf(v, "%f", &stockThreshold)
+	}
+	canonicalTag := false
+	if v, ok := configValues["catalog/seo/product_canonical_tag"]; ok {
+		canonicalTag = v == "1"
+	}
+
 	cfg := &StoreConfig{
-		WebsiteID:         urlRepo.GetWebsiteIDForStore(ctx, storeID),
-		BaseCurrency:      urlRepo.GetBaseCurrency(ctx),
-		ProductURLSuffix:  urlRepo.GetProductURLSuffix(ctx, storeID),
-		CategoryURLSuffix: urlRepo.GetCategoryURLSuffix(ctx, storeID),
-		MediaBaseURL:      r.getMediaBaseURL(ctx, storeID),
-		StockThresholdQty:   r.getFloatConfig(ctx, "cataloginventory/options/stock_threshold_qty", storeID),
-		ProductCanonicalTag: r.getFloatConfig(ctx, "catalog/seo/product_canonical_tag", storeID) == 1,
+		WebsiteID:           websiteID,
+		BaseCurrency:        getConfigOrDefault(configValues, "currency/options/base", "USD"),
+		ProductURLSuffix:    getConfigOrDefault(configValues, "catalog/seo/product_url_suffix", ".html"),
+		CategoryURLSuffix:   getConfigOrDefault(configValues, "catalog/seo/category_url_suffix", ".html"),
+		MediaBaseURL:        mediaBaseURL,
+		StockThresholdQty:   stockThreshold,
+		ProductCanonicalTag: canonicalTag,
 	}
 
 	r.mu.Lock()
@@ -57,6 +140,13 @@ func (r *StoreConfigRepository) Get(ctx context.Context, storeID int) *StoreConf
 	r.mu.Unlock()
 
 	return cfg
+}
+
+func getConfigOrDefault(m map[string]string, key, defaultVal string) string {
+	if v, ok := m[key]; ok && v != "" {
+		return v
+	}
+	return defaultVal
 }
 
 // getMediaBaseURL builds the product media base URL from core_config_data.

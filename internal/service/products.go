@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/magendooro/magento2-catalog-graphql-go/graph/model"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
@@ -75,8 +76,8 @@ func (s *ProductService) GetProducts(ctx context.Context, search *string, filter
 		currentPage = 1
 	}
 
-	// 1. Get base product data with EAV attributes
-	products, totalCount, err := s.productRepo.FindProducts(ctx, storeID, search, filter, sort, pageSize, currentPage)
+	// 1. Get base product data with EAV attributes (also returns all matching IDs for aggregation reuse)
+	products, totalCount, allMatchingIDs, err := s.productRepo.FindProducts(ctx, storeID, search, filter, sort, pageSize, currentPage)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +117,7 @@ func (s *ProductService) GetProducts(ctx context.Context, search *string, filter
 	storeCfg := s.storeConfig.Get(ctx, storeID)
 	currency := parseCurrency(storeCfg.BaseCurrency)
 
-	// 3. Batch load only the data the client requested
+	// 3. Batch load only the data the client requested (parallel)
 	var prices map[int]*repository.PriceData
 	var tierPrices map[int][]*repository.TierPriceData
 	var mediaGallery map[int][]*repository.MediaGalleryData
@@ -124,36 +125,62 @@ func (s *ProductService) GetProducts(ctx context.Context, search *string, filter
 	var categories map[int][]*repository.CategoryData
 	var urlRewrites map[int][]*repository.URLRewriteData
 
+	g, gctx := errgroup.WithContext(ctx)
 	if rf.PriceRange {
-		if prices, err = s.priceRepo.GetPricesForProducts(ctx, entityIDs, storeCfg.WebsiteID); err != nil {
-			log.Warn().Err(err).Msg("failed to load prices")
-		}
+		g.Go(func() error {
+			var err error
+			if prices, err = s.priceRepo.GetPricesForProducts(gctx, entityIDs, storeCfg.WebsiteID); err != nil {
+				log.Warn().Err(err).Msg("failed to load prices")
+			}
+			return nil
+		})
 	}
 	if rf.PriceTiers {
-		if tierPrices, err = s.priceRepo.GetTierPricesForProducts(ctx, rowIDs, storeCfg.WebsiteID); err != nil {
-			log.Warn().Err(err).Msg("failed to load tier prices")
-		}
+		g.Go(func() error {
+			var err error
+			if tierPrices, err = s.priceRepo.GetTierPricesForProducts(gctx, rowIDs, storeCfg.WebsiteID); err != nil {
+				log.Warn().Err(err).Msg("failed to load tier prices")
+			}
+			return nil
+		})
 	}
 	if rf.MediaGallery {
-		if mediaGallery, err = s.mediaRepo.GetMediaForProducts(ctx, rowIDs, storeID); err != nil {
-			log.Warn().Err(err).Msg("failed to load media gallery")
-		}
+		g.Go(func() error {
+			var err error
+			if mediaGallery, err = s.mediaRepo.GetMediaForProducts(gctx, rowIDs, storeID); err != nil {
+				log.Warn().Err(err).Msg("failed to load media gallery")
+			}
+			return nil
+		})
 	}
 	if rf.Inventory {
-		if inventory, err = s.inventoryRepo.GetInventoryForProducts(ctx, entityIDs); err != nil {
-			log.Warn().Err(err).Msg("failed to load inventory")
-		}
+		g.Go(func() error {
+			var err error
+			if inventory, err = s.inventoryRepo.GetInventoryForProducts(gctx, entityIDs); err != nil {
+				log.Warn().Err(err).Msg("failed to load inventory")
+			}
+			return nil
+		})
 	}
 	if rf.Categories {
-		if categories, err = s.categoryRepo.GetCategoriesForProducts(ctx, entityIDs, storeID); err != nil {
-			log.Warn().Err(err).Msg("failed to load categories")
-		}
+		g.Go(func() error {
+			var err error
+			if categories, err = s.categoryRepo.GetCategoriesForProducts(gctx, entityIDs, storeID); err != nil {
+				log.Warn().Err(err).Msg("failed to load categories")
+			}
+			return nil
+		})
 	}
 	if rf.URLRewrites {
-		if urlRewrites, err = s.urlRepo.GetURLRewritesForProducts(ctx, entityIDs, storeID); err != nil {
-			log.Warn().Err(err).Msg("failed to load URL rewrites")
-		}
+		g.Go(func() error {
+			var err error
+			if urlRewrites, err = s.urlRepo.GetURLRewritesForProducts(gctx, entityIDs, storeID); err != nil {
+				log.Warn().Err(err).Msg("failed to load URL rewrites")
+			}
+			return nil
+		})
 	}
+	_ = g.Wait()
 
 	// 3b. Load type-specific data only if requested
 	var configurableEntityIDs, bundleEntityIDs []int
@@ -205,10 +232,10 @@ func (s *ProductService) GetProducts(ctx context.Context, search *string, filter
 		}
 	}
 
-	// 5. Load aggregations only if requested
+	// 5. Load aggregations only if requested (reuse allMatchingIDs from FindProducts)
 	var aggregations []*model.Aggregation
 	if rf.Aggregations {
-		aggregations = s.loadAggregations(ctx, storeID, search, filter, storeCfg)
+		aggregations = s.loadAggregations(ctx, storeID, allMatchingIDs, storeCfg)
 		if aggregations == nil {
 			aggregations = []*model.Aggregation{}
 		}
@@ -1057,10 +1084,9 @@ func (s *ProductService) loadRelatedProducts(ctx context.Context, entityIDs []in
 }
 
 // loadAggregations computes faceted search aggregation buckets.
-func (s *ProductService) loadAggregations(ctx context.Context, storeID int, search *string, filter *model.ProductAttributeFilterInput, storeCfg *repository.StoreConfig) []*model.Aggregation {
-	// Get all matching entity IDs (without pagination)
-	matchingIDs, err := s.productRepo.FindMatchingEntityIDs(ctx, storeID, search, filter)
-	if err != nil || len(matchingIDs) == 0 {
+// matchingIDs are all entity IDs matching the filter (from FindProducts), avoiding a duplicate query.
+func (s *ProductService) loadAggregations(ctx context.Context, storeID int, matchingIDs []int, storeCfg *repository.StoreConfig) []*model.Aggregation {
+	if len(matchingIDs) == 0 {
 		return nil
 	}
 
