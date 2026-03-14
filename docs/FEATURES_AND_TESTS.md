@@ -903,6 +903,10 @@ The following differences were identified, root-caused, and **fixed** during dev
 | Unbounded request body in cache middleware | `io.ReadAll(r.Body)` with no size limit allowed memory exhaustion via oversized requests. | Added `io.LimitReader(r.Body, 1<<20)` (1MB limit) |
 | MaxDepth/ComplexityLimit logic bug | Condition checked `MaxDepth > 0` but applied `ComplexityLimit`, so neither limit was enforced. | Fixed to check `ComplexityLimit > 0` for complexity limit |
 | Batch load errors silently discarded | Price, media, inventory, category, and URL rewrite batch load errors were discarded with `_, _`, potentially serving wrong data cached with HTTP 200. | Added `log.Warn().Err(err).Msg(...)` for all 8 batch load calls |
+| Sequential batch loads | 6 independent DB queries (prices, tiers, media, inventory, categories, URLs) ran sequentially, adding 5-25ms unnecessary latency. | Parallelized with `errgroup.WithContext` — all 6 run concurrently |
+| Duplicate aggregation query | `FindMatchingEntityIDs` re-executed the same filter query as `FindProducts` without LIMIT, doubling MySQL work for aggregation requests. | `FindProducts` now returns all matching IDs alongside paginated results; `loadAggregations` reuses them |
+| Filterable attributes not cached | `GetFilterableAttributes` queried `eav_attribute` + `catalog_eav_attribute` on every aggregation request. | Cached in memory after first load, served from cache on subsequent requests |
+| 8+ sequential config queries per store | `StoreConfigRepository.Get()` made 8+ sequential single-row queries to `core_config_data` on first access. | Batched into 2 queries total (1 for website_id, 1 for all config paths) |
 
 ---
 
