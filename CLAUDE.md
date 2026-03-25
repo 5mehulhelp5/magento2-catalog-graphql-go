@@ -36,11 +36,9 @@ High-performance Go drop-in replacement for Magento 2's `products()` GraphQL que
 cmd/server/           Entry point
 graph/                GraphQL schema, resolvers, generated code
 internal/
-  app/                HTTP server bootstrap
-  cache/              Redis client (optional)
-  config/             Config loader (Viper: env vars > YAML > defaults)
-  database/           MySQL connection (socket + TCP, UTC timezone)
-  middleware/         CORS, caching, logging, panic recovery, store resolution
+  app/                HTTP server bootstrap (uses magento2-go-common for db/cache/middleware)
+  config/             Config loader — Viper struct only (env vars > YAML > defaults)
+                      NOTE: ConfigProvider comes from magento2-go-common/config
   repository/         Data access — one file per domain:
     product.go        Product query with dynamic EAV JOINs
     attribute.go      EAV attribute metadata cache (loaded at startup)
@@ -54,12 +52,22 @@ internal/
     review.go         Review summaries
     aggregation.go    Faceted navigation (category, price, select attributes)
     search.go         Search suggestions
-    store.go          Store config
+    store.go          Store config (uses magento2-go-common/config.ConfigProvider)
     product_link.go   Related/upsell/crosssell
+  search/             OpenSearch/Elasticsearch client
   service/
     products.go       Query orchestration, parallel batch loading, type mapping
     fields.go         GraphQL AST field detection (CollectRequestedFields)
 tests/                Integration + comparison tests (HTTP-based via httptest)
+```
+
+### Shared packages (from magento2-go-common)
+
+`internal/cache`, `internal/database`, and `internal/middleware` were removed — they are provided by `magento2-go-common`. `graph/resolver.go` uses aliased imports:
+
+```go
+localconfig  "github.com/magendooro/magento2-catalog-graphql-go/internal/config"  // Viper struct
+commonconfig "github.com/magendooro/magento2-go-common/config"                    // ConfigProvider
 ```
 
 ## Build & Test
