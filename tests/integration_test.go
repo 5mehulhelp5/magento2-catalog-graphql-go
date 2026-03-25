@@ -14,7 +14,7 @@ import (
 
 	"github.com/magendooro/magento2-catalog-graphql-go/graph"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/middleware"
+	"github.com/magendooro/magento2-go-common/middleware"
 )
 
 var testHandler http.Handler

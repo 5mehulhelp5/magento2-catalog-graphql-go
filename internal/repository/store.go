@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
+	"github.com/magendooro/magento2-go-common/config"
 )
 
 // StoreConfig holds cached store configuration values.

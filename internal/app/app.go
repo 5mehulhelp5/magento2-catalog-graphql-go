@@ -16,23 +16,21 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/repository"
-
 	"github.com/magendooro/magento2-catalog-graphql-go/graph"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/cache"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/database"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/middleware"
+	"github.com/magendooro/magento2-catalog-graphql-go/internal/repository"
+	localconfig "github.com/magendooro/magento2-catalog-graphql-go/internal/config"
+	commoncache "github.com/magendooro/magento2-go-common/cache"
+	commondb "github.com/magendooro/magento2-go-common/database"
+	"github.com/magendooro/magento2-go-common/middleware"
 )
 
 type App struct {
-	cfg   *config.Config
+	cfg   *localconfig.Config
 	db    *sql.DB
-	cache *cache.Client
+	cache *commoncache.Client
 }
 
-func New(cfg *config.Config) (*App, error) {
-	// Configure logging
+func New(cfg *localconfig.Config) (*App, error) {
 	if cfg.Logging.Pretty {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
@@ -42,49 +40,55 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	zerolog.SetGlobalLevel(level)
 
-	// Database connection
-	db, err := database.NewConnection(cfg.Database)
+	db, err := commondb.NewConnection(commondb.Config{
+		Host:            cfg.Database.Host,
+		Port:            cfg.Database.Port,
+		User:            cfg.Database.User,
+		Password:        cfg.Database.Password,
+		Name:            cfg.Database.Name,
+		// Catalog's DatabaseConfig has no Socket field; defaults to /tmp/mysql.sock for localhost
+		MaxOpenConns:    cfg.Database.MaxOpenConns,
+		MaxIdleConns:    cfg.Database.MaxIdleConns,
+		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
+		ConnMaxIdleTime: cfg.Database.ConnMaxIdleTime,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("database connection failed: %w", err)
 	}
 	log.Info().Str("database", cfg.Database.Name).Msg("connected to database")
 
-	// Redis cache (optional — nil if unavailable)
-	redisCache := cache.New(cache.Config{
+	redisCache := commoncache.New(commoncache.Config{
 		Host:     cfg.Redis.Host,
 		Port:     cfg.Redis.Port,
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
+		Prefix:   "gql:",
 	})
 
 	return &App{cfg: cfg, db: db, cache: redisCache}, nil
 }
 
 func (a *App) Run() error {
-	// Set media cache hash if configured
 	if hash := a.cfg.Media.CacheHash; hash != "" {
 		repository.ImageCacheHash = hash
 		log.Info().Str("hash", hash).Msg("media cache hash configured")
 	}
 
-	// Store resolver middleware
 	storeResolver := middleware.NewStoreResolver(a.db)
 
-	// GraphQL server
 	resolver, err := graph.NewResolver(a.db, a.cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}
+
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
 		Resolvers: resolver,
 	}))
 
-	// GraphQL query complexity and depth limits
 	if a.cfg.GraphQL.ComplexityLimit > 0 {
 		srv.Use(extension.FixedComplexityLimit(a.cfg.GraphQL.ComplexityLimit))
 	}
 
-	// HTTP mux
 	mux := http.NewServeMux()
 	mux.Handle("/graphql", srv)
 	mux.Handle("/{$}", playground.Handler("Magento Catalog GraphQL", "/graphql"))
@@ -97,24 +101,22 @@ func (a *App) Run() error {
 		w.Write([]byte("ok"))
 	})
 
-	// Apply middleware chain (outermost first)
-	var handler http.Handler = mux
-	handler = middleware.CacheMiddleware(a.cache)(handler)
-	handler = middleware.StoreMiddleware(storeResolver)(handler)
-	handler = middleware.LoggingMiddleware(handler)
-	handler = middleware.CORSMiddleware(handler)
-	handler = middleware.RecoveryMiddleware(handler)
+	// Catalog caches all GraphQL responses — no auth, no mutations
+	var h http.Handler = mux
+	h = middleware.CacheMiddleware(a.cache, middleware.CacheOptions{})(h)
+	h = middleware.StoreMiddleware(storeResolver)(h)
+	h = middleware.LoggingMiddleware(h)
+	h = middleware.CORSMiddleware(h)
+	h = middleware.RecoveryMiddleware(h)
 
-	// HTTP server
 	server := &http.Server{
 		Addr:         ":" + a.cfg.Server.Port,
-		Handler:      handler,
+		Handler:      h,
 		ReadTimeout:  a.cfg.Server.ReadTimeout,
 		WriteTimeout: a.cfg.Server.WriteTimeout,
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Graceful shutdown
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
 

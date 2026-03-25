@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
+	localconfig "github.com/magendooro/magento2-catalog-graphql-go/internal/config"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/repository"
 	essearch "github.com/magendooro/magento2-catalog-graphql-go/internal/search"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/service"
+	commonconfig "github.com/magendooro/magento2-go-common/config"
 )
 
 // Resolver is the root resolver. It holds dependencies shared across all resolvers.
@@ -16,9 +17,8 @@ type Resolver struct {
 	ProductService *service.ProductService
 }
 
-func NewResolver(db *sql.DB, cfg *config.Config) (*Resolver, error) {
-	// Initialize ConfigProvider (preloads all core_config_data)
-	cp, err := config.NewConfigProvider(db)
+func NewResolver(db *sql.DB, cfg *localconfig.Config) (*Resolver, error) {
+	cp, err := commonconfig.NewConfigProvider(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config provider: %w", err)
 	}
@@ -47,7 +47,6 @@ func NewResolver(db *sql.DB, cfg *config.Config) (*Resolver, error) {
 		categoryRepo, urlRepo, configurableRepo, bundleRepo, linkRepo, aggregationRepo, reviewRepo, searchRepo, storeConfigRepo, cfg,
 	)
 
-	// Initialize OpenSearch/Elasticsearch client
 	searchClient := essearch.NewClient(cp)
 	if searchClient != nil {
 		productService.SetSearchClient(searchClient)

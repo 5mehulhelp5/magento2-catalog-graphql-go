@@ -12,7 +12,7 @@ import (
 
 	"github.com/magendooro/magento2-catalog-graphql-go/graph/model"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/config"
-	"github.com/magendooro/magento2-catalog-graphql-go/internal/middleware"
+	"github.com/magendooro/magento2-go-common/middleware"
 	"github.com/magendooro/magento2-catalog-graphql-go/internal/repository"
 	essearch "github.com/magendooro/magento2-catalog-graphql-go/internal/search"
 )
