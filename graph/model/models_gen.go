@@ -1367,13 +1367,35 @@ type PriceRange struct {
 }
 
 type ProductAttributeFilterInput struct {
-	CategoryID      *FilterEqualTypeInput `json:"category_id,omitempty"`
-	CategoryUID     *FilterEqualTypeInput `json:"category_uid,omitempty"`
-	CategoryURLPath *FilterEqualTypeInput `json:"category_url_path,omitempty"`
-	URLKey          *FilterEqualTypeInput `json:"url_key,omitempty"`
-	Sku             *FilterEqualTypeInput `json:"sku,omitempty"`
-	Name            *FilterMatchTypeInput `json:"name,omitempty"`
-	Price           *FilterRangeTypeInput `json:"price,omitempty"`
+	CategoryID        *FilterEqualTypeInput `json:"category_id,omitempty"`
+	CategoryUID       *FilterEqualTypeInput `json:"category_uid,omitempty"`
+	CategoryURLPath   *FilterEqualTypeInput `json:"category_url_path,omitempty"`
+	URLKey            *FilterEqualTypeInput `json:"url_key,omitempty"`
+	Sku               *FilterEqualTypeInput `json:"sku,omitempty"`
+	Name              *FilterMatchTypeInput `json:"name,omitempty"`
+	Price             *FilterRangeTypeInput `json:"price,omitempty"`
+	Activity          *FilterEqualTypeInput `json:"activity,omitempty"`
+	CategoryGear      *FilterEqualTypeInput `json:"category_gear,omitempty"`
+	Climate           *FilterEqualTypeInput `json:"climate,omitempty"`
+	Collar            *FilterEqualTypeInput `json:"collar,omitempty"`
+	Color             *FilterEqualTypeInput `json:"color,omitempty"`
+	EcoCollection     *FilterEqualTypeInput `json:"eco_collection,omitempty"`
+	ErinRecommends    *FilterEqualTypeInput `json:"erin_recommends,omitempty"`
+	FeaturesBags      *FilterEqualTypeInput `json:"features_bags,omitempty"`
+	Format            *FilterEqualTypeInput `json:"format,omitempty"`
+	Gender            *FilterEqualTypeInput `json:"gender,omitempty"`
+	Manufacturer      *FilterEqualTypeInput `json:"manufacturer,omitempty"`
+	Material          *FilterEqualTypeInput `json:"material,omitempty"`
+	New               *FilterEqualTypeInput `json:"new,omitempty"`
+	Pattern           *FilterEqualTypeInput `json:"pattern,omitempty"`
+	PerformanceFabric *FilterEqualTypeInput `json:"performance_fabric,omitempty"`
+	Sale              *FilterEqualTypeInput `json:"sale,omitempty"`
+	Size              *FilterEqualTypeInput `json:"size,omitempty"`
+	Sleeve            *FilterEqualTypeInput `json:"sleeve,omitempty"`
+	StrapBags         *FilterEqualTypeInput `json:"strap_bags,omitempty"`
+	StyleBags         *FilterEqualTypeInput `json:"style_bags,omitempty"`
+	StyleBottom       *FilterEqualTypeInput `json:"style_bottom,omitempty"`
+	StyleGeneral      *FilterEqualTypeInput `json:"style_general,omitempty"`
 }
 
 type ProductAttributeSortInput struct {

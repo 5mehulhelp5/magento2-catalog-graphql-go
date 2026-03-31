@@ -29,6 +29,25 @@ func NewCategoryService(
 	}
 }
 
+// GetChildren returns the direct children of a category as CategoryTree nodes.
+// Called by the CategoryTree.children field resolver — gqlgen recurses automatically
+// for deeper nesting based on the client's query depth.
+func (s *CategoryService) GetChildren(ctx context.Context, parentID int) ([]*model.CategoryTree, error) {
+	storeID := middleware.GetStoreID(ctx)
+	storeCfg := s.storeConfig.Get(storeID)
+
+	children, err := s.categoryRepo.GetChildCategories(ctx, parentID, storeID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*model.CategoryTree, 0, len(children))
+	for _, c := range children {
+		result = append(result, repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix))
+	}
+	return result, nil
+}
+
 // GetCategories returns a paginated, filtered list of categories.
 func (s *CategoryService) GetCategories(ctx context.Context, filters *model.CategoryFilterInput, pageSize, currentPage int) (*model.CategoryResult, error) {
 	storeID := middleware.GetStoreID(ctx)
@@ -46,15 +65,7 @@ func (s *CategoryService) GetCategories(ctx context.Context, filters *model.Cate
 
 	items := make([]*model.CategoryTree, 0, len(cats))
 	for _, c := range cats {
-		tree := repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix)
-		children, err := s.categoryRepo.GetChildCategories(ctx, c.EntityID, storeID)
-		if err != nil {
-			return nil, err
-		}
-		for _, child := range children {
-			tree.Children = append(tree.Children, repository.BuildCategoryTree(child, storeCfg.CategoryURLSuffix))
-		}
-		items = append(items, tree)
+		items = append(items, repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix))
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
@@ -92,15 +103,7 @@ func (s *CategoryService) GetCategoryList(ctx context.Context, filters *model.Ca
 
 	result := make([]*model.CategoryTree, 0, len(cats))
 	for _, c := range cats {
-		tree := repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix)
-		children, err := s.categoryRepo.GetChildCategories(ctx, c.EntityID, storeID)
-		if err != nil {
-			return nil, err
-		}
-		for _, child := range children {
-			tree.Children = append(tree.Children, repository.BuildCategoryTree(child, storeCfg.CategoryURLSuffix))
-		}
-		result = append(result, tree)
+		result = append(result, repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix))
 	}
 	return result, nil
 }
@@ -118,16 +121,7 @@ func (s *CategoryService) GetCategoryByID(ctx context.Context, id int) (*model.C
 		return nil, nil
 	}
 
-	tree := repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix)
-
-	children, err := s.categoryRepo.GetChildCategories(ctx, c.EntityID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	for _, child := range children {
-		tree.Children = append(tree.Children, repository.BuildCategoryTree(child, storeCfg.CategoryURLSuffix))
-	}
-	return tree, nil
+	return repository.BuildCategoryTree(c, storeCfg.CategoryURLSuffix), nil
 }
 
 // parseFilters converts GraphQL CategoryFilterInput into repository CategoryFilters.

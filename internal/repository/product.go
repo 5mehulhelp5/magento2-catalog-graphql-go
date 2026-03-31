@@ -20,6 +20,7 @@ func NewProductRepository(db *sql.DB, attrRepo *AttributeRepository) *ProductRep
 	return &ProductRepository{db: db, attrRepo: attrRepo}
 }
 
+
 // ProductEAVValues holds flattened EAV attribute values for a product.
 type ProductEAVValues struct {
 	EntityID         int
@@ -514,7 +515,90 @@ func (r *ProductRepository) buildFilterConditions(storeID int, search *string, f
 		}
 	}
 
+	// EAV select/multiselect/boolean attribute filters.
+	// Each filter checks both the EAV flat index (for simple/non-super attributes)
+	// and catalog_product_entity_int via catalog_product_super_link (for configurable
+	// super attributes like color/size stored on child products).
+	eavFilters := []struct {
+		code   string
+		filter *model.FilterEqualTypeInput
+	}{
+		{"activity", filter.Activity},
+		{"category_gear", filter.CategoryGear},
+		{"climate", filter.Climate},
+		{"collar", filter.Collar},
+		{"color", filter.Color},
+		{"eco_collection", filter.EcoCollection},
+		{"erin_recommends", filter.ErinRecommends},
+		{"features_bags", filter.FeaturesBags},
+		{"format", filter.Format},
+		{"gender", filter.Gender},
+		{"manufacturer", filter.Manufacturer},
+		{"material", filter.Material},
+		{"new", filter.New},
+		{"pattern", filter.Pattern},
+		{"performance_fabric", filter.PerformanceFabric},
+		{"sale", filter.Sale},
+		{"size", filter.Size},
+		{"sleeve", filter.Sleeve},
+		{"strap_bags", filter.StrapBags},
+		{"style_bags", filter.StyleBags},
+		{"style_bottom", filter.StyleBottom},
+		{"style_general", filter.StyleGeneral},
+	}
+
+	for _, ef := range eavFilters {
+		if ef.filter == nil {
+			continue
+		}
+		values := extractEqualValues(ef.filter)
+		if len(values) == 0 {
+			continue
+		}
+		attrID := r.attrRepo.GetID(ef.code)
+		if attrID == 0 {
+			continue
+		}
+		ph := make([]string, len(values))
+		for i, v := range values {
+			ph[i] = "?"
+			args = append(args, v)
+		}
+		inClause := strings.Join(ph, ",")
+
+		// Match: direct EAV index OR configurable child via super_link
+		conditions = append(conditions, fmt.Sprintf(`cpe.entity_id IN (
+			SELECT cpie.entity_id FROM catalog_product_index_eav cpie
+			WHERE cpie.attribute_id = %d AND cpie.value IN (%s) AND cpie.store_id = %d
+			UNION
+			SELECT cpsl.parent_id FROM catalog_product_super_link cpsl
+			INNER JOIN catalog_product_entity_int cpei ON cpsl.product_id = cpei.entity_id
+			WHERE cpei.attribute_id = %d AND cpei.value IN (%s) AND cpei.store_id = 0
+		)`, attrID, inClause, storeID, attrID, inClause))
+		// Duplicate the args for the second IN clause
+		for _, v := range values {
+			args = append(args, v)
+		}
+	}
+
 	return
+}
+
+// extractEqualValues extracts values from a FilterEqualTypeInput (eq or in).
+func extractEqualValues(f *model.FilterEqualTypeInput) []string {
+	if f == nil {
+		return nil
+	}
+	if f.Eq != nil {
+		return []string{*f.Eq}
+	}
+	var vals []string
+	for _, v := range f.In {
+		if v != nil {
+			vals = append(vals, *v)
+		}
+	}
+	return vals
 }
 
 // buildOrderBy constructs the ORDER BY clause from sort input.

@@ -1297,21 +1297,22 @@ func (s *ProductService) loadAggregations(ctx context.Context, storeID int, matc
 
 	var aggregations []*model.Aggregation
 
-	// Add category aggregation
-	catBucket, _ := s.aggregationRepo.GetCategoryAggregation(ctx, matchingIDs, storeID, scopeCategoryID)
-	if catBucket != nil {
-		aggregations = append(aggregations, bucketToAggregation(catBucket))
-	}
-
+	// Iterate filterable attributes in position/attribute_id order (matches Magento).
+	// Insert category aggregation right after price (Magento order: price, category, EAV attrs).
+	categoryInserted := false
 	for _, attr := range filterableAttrs {
 		if attr.FrontendInput == "price" {
-			// Price aggregation
 			priceBucket, _ := s.aggregationRepo.GetPriceAggregation(ctx, matchingIDs, storeCfg.WebsiteID)
 			if priceBucket != nil {
 				aggregations = append(aggregations, bucketToAggregation(priceBucket))
 			}
+			// Category aggregation follows price
+			catBucket, _ := s.aggregationRepo.GetCategoryAggregation(ctx, matchingIDs, storeID, scopeCategoryID)
+			if catBucket != nil {
+				aggregations = append(aggregations, bucketToAggregation(catBucket))
+			}
+			categoryInserted = true
 		} else if attr.FrontendInput == "select" || attr.FrontendInput == "multiselect" || attr.FrontendInput == "boolean" {
-			// Select/multiselect aggregation using EAV index
 			bucket, _ := s.aggregationRepo.GetSelectAggregations(ctx, attr, matchingIDs, storeID)
 			if bucket != nil {
 				aggregations = append(aggregations, bucketToAggregation(bucket))
@@ -1319,8 +1320,17 @@ func (s *ProductService) loadAggregations(ctx context.Context, storeID int, matc
 		}
 	}
 
+	// Fallback: if no price attribute was found, still add category aggregation
+	if !categoryInserted {
+		catBucket, _ := s.aggregationRepo.GetCategoryAggregation(ctx, matchingIDs, storeID, scopeCategoryID)
+		if catBucket != nil {
+			aggregations = append(aggregations, bucketToAggregation(catBucket))
+		}
+	}
+
 	return aggregations
 }
+
 
 func bucketToAggregation(bucket *repository.AggregationBucket) *model.Aggregation {
 	count := len(bucket.Options)
