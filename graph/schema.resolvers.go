@@ -11,6 +11,17 @@ import (
 	"github.com/magendooro/magento2-catalog-graphql-go/graph/model"
 )
 
+// Children is the resolver for the children field.
+// gqlgen calls this for each CategoryTree node when the client requests `children`.
+// Recursion to deeper levels happens automatically — gqlgen invokes this resolver
+// again for each returned child if the query nests further.
+func (r *categoryTreeResolver) Children(ctx context.Context, obj *model.CategoryTree) ([]*model.CategoryTree, error) {
+	if obj.ID == nil {
+		return nil, nil
+	}
+	return r.CategoryService.GetChildren(ctx, *obj.ID)
+}
+
 // Products is the resolver for the products field.
 func (r *queryResolver) Products(ctx context.Context, search *string, filter *model.ProductAttributeFilterInput, pageSize *int, currentPage *int, sort *model.ProductAttributeSortInput) (*model.Products, error) {
 	ps := 20
@@ -51,7 +62,11 @@ func (r *queryResolver) Category(ctx context.Context, id *int) (*model.CategoryT
 	return r.CategoryService.GetCategoryByID(ctx, *id)
 }
 
+// CategoryTree returns CategoryTreeResolver implementation.
+func (r *Resolver) CategoryTree() CategoryTreeResolver { return &categoryTreeResolver{r} }
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+type categoryTreeResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

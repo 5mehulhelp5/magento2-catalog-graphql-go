@@ -98,7 +98,29 @@ input ProductAttributeFilterInput {
     sku: FilterEqualTypeInput
     name: FilterMatchTypeInput
     price: FilterRangeTypeInput
-    # Dynamic EAV filters are handled programmatically
+    # EAV select/multiselect/boolean attributes (filterable in layered navigation)
+    activity: FilterEqualTypeInput
+    category_gear: FilterEqualTypeInput
+    climate: FilterEqualTypeInput
+    collar: FilterEqualTypeInput
+    color: FilterEqualTypeInput
+    eco_collection: FilterEqualTypeInput
+    erin_recommends: FilterEqualTypeInput
+    features_bags: FilterEqualTypeInput
+    format: FilterEqualTypeInput
+    gender: FilterEqualTypeInput
+    manufacturer: FilterEqualTypeInput
+    material: FilterEqualTypeInput
+    new: FilterEqualTypeInput
+    pattern: FilterEqualTypeInput
+    performance_fabric: FilterEqualTypeInput
+    sale: FilterEqualTypeInput
+    size: FilterEqualTypeInput
+    sleeve: FilterEqualTypeInput
+    strap_bags: FilterEqualTypeInput
+    style_bags: FilterEqualTypeInput
+    style_bottom: FilterEqualTypeInput
+    style_general: FilterEqualTypeInput
 }
 
 input FilterEqualTypeInput {

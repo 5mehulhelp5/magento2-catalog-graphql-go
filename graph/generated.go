@@ -28,6 +28,7 @@ func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
 type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
+	CategoryTree() CategoryTreeResolver
 	Query() QueryResolver
 }
 
@@ -871,6 +872,9 @@ type ComplexityRoot struct {
 	}
 }
 
+type CategoryTreeResolver interface {
+	Children(ctx context.Context, obj *model.CategoryTree) ([]*model.CategoryTree, error)
+}
 type QueryResolver interface {
 	Products(ctx context.Context, search *string, filter *model.ProductAttributeFilterInput, pageSize *int, currentPage *int, sort *model.ProductAttributeSortInput) (*model.Products, error)
 	Categories(ctx context.Context, filters *model.CategoryFilterInput, pageSize *int, currentPage *int) (*model.CategoryResult, error)
@@ -9274,7 +9278,7 @@ func (ec *executionContext) _CategoryTree_children(ctx context.Context, field gr
 		field,
 		ec.fieldContext_CategoryTree_children,
 		func(ctx context.Context) (any, error) {
-			return obj.Children, nil
+			return ec.Resolvers.CategoryTree().Children(ctx, obj)
 		},
 		nil,
 		ec.marshalOCategoryTree2ᚕᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐCategoryTree,
@@ -9287,8 +9291,8 @@ func (ec *executionContext) fieldContext_CategoryTree_children(_ context.Context
 	fc = &graphql.FieldContext{
 		Object:     "CategoryTree",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -26593,7 +26597,7 @@ func (ec *executionContext) unmarshalInputProductAttributeFilterInput(ctx contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"category_id", "category_uid", "category_url_path", "url_key", "sku", "name", "price"}
+	fieldsInOrder := [...]string{"category_id", "category_uid", "category_url_path", "url_key", "sku", "name", "price", "activity", "category_gear", "climate", "collar", "color", "eco_collection", "erin_recommends", "features_bags", "format", "gender", "manufacturer", "material", "new", "pattern", "performance_fabric", "sale", "size", "sleeve", "strap_bags", "style_bags", "style_bottom", "style_general"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -26649,6 +26653,160 @@ func (ec *executionContext) unmarshalInputProductAttributeFilterInput(ctx contex
 				return it, err
 			}
 			it.Price = data
+		case "activity":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("activity"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Activity = data
+		case "category_gear":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("category_gear"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CategoryGear = data
+		case "climate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("climate"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Climate = data
+		case "collar":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("collar"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Collar = data
+		case "color":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("color"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Color = data
+		case "eco_collection":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eco_collection"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EcoCollection = data
+		case "erin_recommends":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("erin_recommends"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ErinRecommends = data
+		case "features_bags":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("features_bags"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FeaturesBags = data
+		case "format":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("format"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Format = data
+		case "gender":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gender"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Gender = data
+		case "manufacturer":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("manufacturer"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Manufacturer = data
+		case "material":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("material"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Material = data
+		case "new":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("new"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.New = data
+		case "pattern":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pattern"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pattern = data
+		case "performance_fabric":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("performance_fabric"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PerformanceFabric = data
+		case "sale":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sale"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sale = data
+		case "size":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("size"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Size = data
+		case "sleeve":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sleeve"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sleeve = data
+		case "strap_bags":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("strap_bags"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StrapBags = data
+		case "style_bags":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("style_bags"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StyleBags = data
+		case "style_bottom":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("style_bottom"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StyleBottom = data
+		case "style_general":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("style_general"))
+			data, err := ec.unmarshalOFilterEqualTypeInput2ᚖgithubᚗcomᚋmagendooroᚋmagento2ᚑcatalogᚑgraphqlᚑgoᚋgraphᚋmodelᚐFilterEqualTypeInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StyleGeneral = data
 		}
 	}
 	return it, nil
@@ -27785,7 +27943,7 @@ func (ec *executionContext) _CategoryTree(ctx context.Context, sel ast.Selection
 		case "uid":
 			out.Values[i] = ec._CategoryTree_uid(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "description":
 			out.Values[i] = ec._CategoryTree_description(ctx, field, obj)
@@ -27824,12 +27982,43 @@ func (ec *executionContext) _CategoryTree(ctx context.Context, sel ast.Selection
 		case "redirect_code":
 			out.Values[i] = ec._CategoryTree_redirect_code(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "type":
 			out.Values[i] = ec._CategoryTree_type(ctx, field, obj)
 		case "children":
-			out.Values[i] = ec._CategoryTree_children(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CategoryTree_children(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

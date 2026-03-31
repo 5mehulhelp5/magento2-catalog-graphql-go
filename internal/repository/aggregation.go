@@ -64,13 +64,15 @@ func (r *AggregationRepository) GetFilterableAttributes(ctx context.Context, inS
 		filterCol = "eaa.is_filterable_in_search"
 	}
 
-	query := `SELECT ea.attribute_id, ea.attribute_code, COALESCE(ea.frontend_label, ea.attribute_code),
+	query := `SELECT ea.attribute_id, ea.attribute_code,
+		COALESCE(eal.value, ea.frontend_label, ea.attribute_code),
 		ea.frontend_input, eaa.position
 		FROM eav_attribute ea
 		JOIN catalog_eav_attribute eaa ON ea.attribute_id = eaa.attribute_id
+		LEFT JOIN eav_attribute_label eal ON ea.attribute_id = eal.attribute_id AND eal.store_id = 1
 		WHERE ea.entity_type_id = 4
 		AND ` + filterCol + ` > 0
-		ORDER BY eaa.position, ea.attribute_code`
+		ORDER BY eaa.position ASC, ea.attribute_id ASC`
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
@@ -109,66 +111,53 @@ func (r *AggregationRepository) GetSelectAggregations(ctx context.Context, attr 
 	}
 
 	placeholders := make([]string, len(matchingEntityIDs))
-	args := make([]interface{}, 0, len(matchingEntityIDs)+2)
-	for i, id := range matchingEntityIDs {
+	for i := range matchingEntityIDs {
 		placeholders[i] = "?"
-		args = append(args, id)
 	}
-	args = append(args, attr.AttributeID)
+	inClause := strings.Join(placeholders, ",")
 
-	useStoreID := storeID
-	if useStoreID == 0 {
-		useStoreID = 0
-	}
-	args = append(args, useStoreID)
-
-	query := `SELECT cpie.value as option_id,
-		COALESCE(eaov_s.value, eaov_d.value, CAST(cpie.value AS CHAR)) as label,
-		COUNT(DISTINCT cpie.entity_id) as cnt
-		FROM catalog_product_index_eav cpie
-		LEFT JOIN eav_attribute_option_value eaov_d ON cpie.value = eaov_d.option_id AND eaov_d.store_id = 0
-		LEFT JOIN eav_attribute_option_value eaov_s ON cpie.value = eaov_s.option_id AND eaov_s.store_id = ?
-		WHERE cpie.entity_id IN (` + strings.Join(placeholders, ",") + `)
-		AND cpie.attribute_id = ?
-		AND cpie.store_id = ?
-		GROUP BY cpie.value, label
-		HAVING cnt > 0
-		ORDER BY cnt DESC`
-
-	// Reorder args: entity_ids, then store_id for label join, then attribute_id, then store_id for filter
-	labelStoreID := storeID
-	reorderedArgs := make([]interface{}, 0, len(args)+1)
-	reorderedArgs = append(reorderedArgs, labelStoreID) // for eaov_s join
-	for _, id := range matchingEntityIDs {
-		reorderedArgs = append(reorderedArgs, id)
-	}
-	reorderedArgs = append(reorderedArgs, attr.AttributeID)
-	reorderedArgs = append(reorderedArgs, useStoreID)
-
-	// Actually let me simplify the query to avoid confusion with arg ordering.
-	// The label store join uses a constant, so let me use fmt.Sprintf for the store IDs.
-	// Join through eav_attribute_option to filter by attribute_id,
-	// ensuring we only get labels for options belonging to this specific attribute.
-	query = fmt.Sprintf(`SELECT cpie.value as option_id,
-		COALESCE(eaov_s.value, eaov_d.value, CAST(cpie.value AS CHAR)) as label,
-		COUNT(DISTINCT cpie.entity_id) as cnt
-		FROM catalog_product_index_eav cpie
-		LEFT JOIN eav_attribute_option eao ON cpie.value = eao.option_id AND eao.attribute_id = ?
+	// Use a UNION of two sources to find attribute values:
+	// 1. catalog_product_index_eav — the flat EAV index (most filterable attributes)
+	// 2. catalog_product_super_link + catalog_product_entity_int — configurable super
+	//    attributes (color, size) stored on child products, mapped back to parent_id
+	//    so the count reflects distinct parent products.
+	query := fmt.Sprintf(`SELECT src.option_id,
+		COALESCE(eaov_s.value, eaov_d.value, CAST(src.option_id AS CHAR)) as label,
+		COUNT(DISTINCT src.parent_id) as cnt
+		FROM (
+			SELECT cpie.entity_id as parent_id, cpie.value as option_id
+			FROM catalog_product_index_eav cpie
+			WHERE cpie.entity_id IN (%s)
+			AND cpie.attribute_id = ?
+			AND cpie.store_id = %d
+			UNION
+			SELECT cpsl.parent_id, cpei.value as option_id
+			FROM catalog_product_super_link cpsl
+			INNER JOIN catalog_product_entity_int cpei ON cpsl.product_id = cpei.entity_id
+			WHERE cpsl.parent_id IN (%s)
+			AND cpei.attribute_id = ?
+			AND cpei.store_id = 0
+		) src
+		LEFT JOIN eav_attribute_option eao ON src.option_id = eao.option_id AND eao.attribute_id = ?
 		LEFT JOIN eav_attribute_option_value eaov_d ON eao.option_id = eaov_d.option_id AND eaov_d.store_id = 0
 		LEFT JOIN eav_attribute_option_value eaov_s ON eao.option_id = eaov_s.option_id AND eaov_s.store_id = %d
-		WHERE cpie.entity_id IN (`+strings.Join(placeholders, ",")+`)
-		AND cpie.attribute_id = ?
-		AND cpie.store_id = %d
-		GROUP BY cpie.value, label
+		GROUP BY src.option_id, label
 		HAVING cnt > 0
-		ORDER BY cnt DESC`, storeID, storeID)
+		ORDER BY label ASC`, inClause, storeID, inClause, storeID)
 
-	finalArgs := make([]interface{}, 0, len(matchingEntityIDs)+2)
-	finalArgs = append(finalArgs, attr.AttributeID) // for eao.attribute_id join
+	finalArgs := make([]interface{}, 0, len(matchingEntityIDs)*2+3)
+	// First IN clause (catalog_product_index_eav)
 	for _, id := range matchingEntityIDs {
 		finalArgs = append(finalArgs, id)
 	}
-	finalArgs = append(finalArgs, attr.AttributeID) // for cpie.attribute_id filter
+	finalArgs = append(finalArgs, attr.AttributeID)
+	// Second IN clause (catalog_product_super_link)
+	for _, id := range matchingEntityIDs {
+		finalArgs = append(finalArgs, id)
+	}
+	finalArgs = append(finalArgs, attr.AttributeID)
+	// JOIN clause
+	finalArgs = append(finalArgs, attr.AttributeID)
 
 	rows, err := r.db.QueryContext(ctx, query, finalArgs...)
 	if err != nil {
@@ -189,6 +178,14 @@ func (r *AggregationRepository) GetSelectAggregations(ctx context.Context, attr 
 			return nil, fmt.Errorf("select aggregation scan failed: %w", err)
 		}
 		opt.Value = fmt.Sprintf("%d", optionID)
+		// Boolean attributes store 0/1 but Magento displays "No"/"Yes"
+		if attr.FrontendInput == "boolean" {
+			if opt.Value == "1" {
+				opt.Label = "Yes"
+			} else {
+				opt.Label = "No"
+			}
+		}
 		bucket.Options = append(bucket.Options, opt)
 	}
 	if err := rows.Err(); err != nil {
@@ -216,17 +213,17 @@ func (r *AggregationRepository) GetPriceAggregation(ctx context.Context, matchin
 
 	// Generate price ranges using buckets of automatic width
 	query := `SELECT
-		price_bucket * 50 as price_from,
-		price_bucket * 50 + 49.99 as price_to,
+		price_bucket * 10 as price_from,
+		price_bucket * 10 + 9.99 as price_to,
 		cnt
 		FROM (
-			SELECT FLOOR(pip.min_price / 50) as price_bucket,
+			SELECT FLOOR(pip.min_price / 10) as price_bucket,
 				COUNT(DISTINCT pip.entity_id) as cnt
 			FROM catalog_product_index_price pip
 			WHERE pip.entity_id IN (` + strings.Join(placeholders, ",") + `)
 			AND pip.customer_group_id = 0
 			AND pip.website_id = ` + fmt.Sprintf("%d", websiteID) + `
-			GROUP BY FLOOR(pip.min_price / 50)
+			GROUP BY FLOOR(pip.min_price / 10)
 			HAVING cnt > 0
 		) t
 		ORDER BY price_from`
