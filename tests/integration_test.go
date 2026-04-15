@@ -124,7 +124,7 @@ func extractField(result map[string]interface{}, path ...string) interface{} {
 
 func TestProductsBySKU(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { sku name uid type_id }
 			total_count
 		}
@@ -136,11 +136,11 @@ func TestProductsBySKU(t *testing.T) {
 	}
 
 	item := items[0].(map[string]interface{})
-	if item["sku"] != "B5247819" {
-		t.Errorf("expected sku B5247819, got %v", item["sku"])
+	if item["sku"] != "magendoo-customer-segmentation" {
+		t.Errorf("expected sku magendoo-customer-segmentation, got %v", item["sku"])
 	}
-	if item["name"] != "Bundle Aura" {
-		t.Errorf("expected name 'Bundle Aura', got %v", item["name"])
+	if item["name"] != "Customer Segmentation for Magento 2" {
+		t.Errorf("expected name 'Customer Segmentation for Magento 2', got %v", item["name"])
 	}
 	if item["type_id"] != "bundle" {
 		t.Errorf("expected type_id 'bundle', got %v", item["type_id"])
@@ -154,7 +154,7 @@ func TestProductsBySKU(t *testing.T) {
 
 func TestProductsBySKUIn(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { in: ["B5247819", "A1358093"] } }) {
+		products(filter: { sku: { in: ["magendoo-customer-segmentation", "magendoo-faq-product-questions"] } }) {
 			items { sku }
 			total_count
 		}
@@ -168,7 +168,7 @@ func TestProductsBySKUIn(t *testing.T) {
 
 func TestProductsSearch(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(search: "aura", pageSize: 50) {
+		products(search: "yoga", pageSize: 50) {
 			items { sku name }
 			total_count
 		}
@@ -176,7 +176,7 @@ func TestProductsSearch(t *testing.T) {
 
 	items := extractProducts(result)
 	if len(items) == 0 {
-		t.Fatal("expected products for search 'aura'")
+		t.Fatal("expected products for search 'yoga'")
 	}
 
 	tc := extractField(result, "data", "products", "total_count").(float64)
@@ -187,7 +187,7 @@ func TestProductsSearch(t *testing.T) {
 
 func TestProductsPriceRange(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items {
 				sku
 				price_range {
@@ -211,20 +211,20 @@ func TestProductsPriceRange(t *testing.T) {
 
 	item := items[0].(map[string]interface{})
 	pr := item["price_range"].(map[string]interface{})
-	minPrice := pr["minimum_price"].(map[string]interface{})
-	finalPrice := minPrice["final_price"].(map[string]interface{})
+	maxPrice := pr["maximum_price"].(map[string]interface{})
+	finalPrice := maxPrice["final_price"].(map[string]interface{})
 
-	if finalPrice["currency"] != "AED" {
-		t.Errorf("expected AED currency, got %v", finalPrice["currency"])
+	if finalPrice["currency"] != "EUR" {
+		t.Errorf("expected EUR currency, got %v", finalPrice["currency"])
 	}
 	if finalPrice["value"].(float64) <= 0 {
-		t.Errorf("expected positive price, got %v", finalPrice["value"])
+		t.Errorf("expected positive max price, got %v", finalPrice["value"])
 	}
 }
 
 func TestProductsMediaGallery(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items {
 				sku
 				media_gallery { url label position disabled }
@@ -249,7 +249,7 @@ func TestProductsMediaGallery(t *testing.T) {
 
 func TestProductsInventory(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { sku stock_status }
 		}
 	}`, "default")
@@ -264,7 +264,7 @@ func TestProductsInventory(t *testing.T) {
 
 func TestProductsCategories(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { sku categories { uid name } }
 		}
 	}`, "default")
@@ -285,7 +285,7 @@ func TestProductsCategories(t *testing.T) {
 
 func TestProductsURLRewrites(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { sku url_key url_rewrites { url } }
 		}
 	}`, "default")
@@ -353,7 +353,7 @@ func TestProductsSorting(t *testing.T) {
 
 func TestProductsCategoryFilter(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { categories { uid name } }
 		}
 	}`, "default")
@@ -475,7 +475,7 @@ func TestConfigurableProduct(t *testing.T) {
 
 func TestBundleProduct(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items {
 				__typename
 				... on BundleProduct {
@@ -552,7 +552,7 @@ func TestEmptyResult(t *testing.T) {
 
 func TestReviewFields(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items {
 				sku rating_summary review_count
 				reviews { items { summary nickname } page_info { total_pages } }
@@ -575,7 +575,7 @@ func TestReviewFields(t *testing.T) {
 
 func TestCategoryIDFilter(t *testing.T) {
 	result := graphqlRequest(t, `{
-		products(filter: { sku: { eq: "B5247819" } }) {
+		products(filter: { sku: { eq: "magendoo-customer-segmentation" } }) {
 			items { categories { uid name } }
 		}
 	}`, "default")
