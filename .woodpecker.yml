@@ -47,17 +47,7 @@ steps:
     image: /bin/sh
     commands:
       - scp catalog-server-new deploy:/tmp/catalog-server
-      - ssh deploy "
-          set -e
-          BINS=/srv/magendoo/bins
-          [ -f \$BINS/catalog ] && cp \$BINS/catalog \$BINS/catalog.bak
-          cp /tmp/catalog-server \$BINS/catalog.new
-          chmod +x \$BINS/catalog.new
-          mv \$BINS/catalog.new \$BINS/catalog
-          systemctl restart magendoo-catalog
-          sleep 3
-          systemctl is-active magendoo-catalog && echo 'deploy ok' || (echo 'FAILED — rolling back'; cp \$BINS/catalog.bak \$BINS/catalog; systemctl restart magendoo-catalog; exit 1)
-        "
+      - ssh deploy "set -e; BINS=/srv/magendoo/bins; [ -f \$BINS/catalog ] && cp \$BINS/catalog \$BINS/catalog.bak; cp /tmp/catalog-server \$BINS/catalog.new; chmod +x \$BINS/catalog.new; mv \$BINS/catalog.new \$BINS/catalog; systemctl restart magendoo-catalog; sleep 3; systemctl is-active magendoo-catalog && echo 'deploy ok' || (echo 'FAILED — rolling back'; cp \$BINS/catalog.bak \$BINS/catalog; systemctl restart magendoo-catalog; exit 1)"
     when:
       - event: push
         branch: [main, master]
